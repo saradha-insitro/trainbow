@@ -59,6 +59,22 @@ def create_acquistion_df(plate_id: str,microscope_id: int,measurement_ids:list =
         acquisition_df = data.create_multi_acquisition_nikon_dataframe(measurement_ids)
     else:
         raise Exception("Error obtaining the acquisition dataframe- check microscope id")
+    
+    #compute image uids
+    acquisition_df["uid"] = data._compute_uid(acquisition_df, ["well_loc", "field_index"])
+
 
     return acquisition_df
                             
+    
+def save_object(foo:object, 
+                path:str):
+    '''
+    Function to save an object to a given path in s3. 
+    Args: 
+        foo : object to be stored
+        path : path to where object should be stored
+    '''
+    
+    data.save_data(foo,path)
+    

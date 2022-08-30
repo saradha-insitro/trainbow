@@ -21,7 +21,9 @@ def plot_random_images_from_sample(sample: str,
                                          normalise_comp_image:bool = True,
                                          comp_img_gain:int = 10,
                                          comp_img_alpha:float = 0.9,
+                                         comp_img_gamma: int = 8,
                                          max_num_of_images_per_row:int = 5
+                                   
                                         ):
     '''
     Function to visualise n brainbow images randomly sampled (with replacement) for a given sample
@@ -37,6 +39,7 @@ def plot_random_images_from_sample(sample: str,
         normalise_comp_image: should the channels of each image be normalised- note that this will give weird images if set to true and there is no signal in the image
         comp_img_gain: digital brightness gain -> see sklearn's exposure.adjust gamma for more details
         comp_img_alpha: blending/transparency of channels -> see matplotlib's imshow for more details
+        comp_img_gamma: digital contrast -> see sklearn's exposure.adjust gamma for more details
         max_num_of_images_per_row: a number specifying the maximum number of columns in the image matrix
 
 
@@ -64,7 +67,13 @@ def plot_random_images_from_sample(sample: str,
         bb_comp = image_utils.create_composite_brainbow_image(image, channel_map, normalise_comp_image)
         
         # visualise image
-        ax.imshow(exposure.adjust_gamma(bb_comp, gamma =1, gain = comp_img_gain),alpha = comp_img_alpha)
+        #ax.imshow(exposure.adjust_gamma(bb_comp, gamma =1, gain = comp_img_gain),alpha = comp_img_alpha)
+        
+        img_t = np.stack([exposure.equalize_adapthist(bb_comp[:,:,0], clip_limit=0.3),
+                          exposure.equalize_adapthist(bb_comp[:,:,1], clip_limit=0.3),
+                          exposure.equalize_adapthist(bb_comp[:,:,2], clip_limit=0.3)],axis = 2)
+        ax.imshow(exposure.adjust_gamma(img_t,gamma = comp_img_gamma))
+
         ax.axis('off')
     
     fig.suptitle(sample,fontweight='bold')
@@ -228,3 +237,4 @@ def plot_brainbow_composite_image_channelwise(image:np.ndarray,
     ax4.set_title('mKate2')
 
     fig.show()
+    

@@ -11,7 +11,8 @@ from trainbow.utils import image_utils, database_utils,voronoi
 
 def segment_nuclei_cellpose(images:list,
                             nuc_dia:int = 35,
-                            cp_flowthresh:float = 0.4
+                            cp_flowthresh:float = 0.4,
+                            use_gpu:bool = False
                            ):
     '''
     Function to segment nuclei using the public cell pose model.
@@ -23,7 +24,7 @@ def segment_nuclei_cellpose(images:list,
     '''
     
     # model_type='cyto' or model_type='nuclei'
-    model = models.Cellpose(gpu=False, model_type='nuclei')
+    model = models.Cellpose(gpu = use_gpu, model_type='nuclei')
 
     nuc_masks, _, _, _ = model.eval(images, 
                                     diameter = nuc_dia, 
@@ -38,7 +39,9 @@ def segment_cells_and_nuclei_cp_and_vor( image:np.ndarray,
                                          channel_map:dict,
                                          cyto_stain:int = None,
                                          estimated_nucleus_dia:int = 35,
-                                         cp_nuc_flowthresh:float =0.4):
+                                         cp_nuc_flowthresh:float =0.4,
+                                        cp_use_gpu:bool = False
+                                       ):
     '''
     Function to segment cells and nuclei. This is achieved by first generating nuclei labelled masks using cellpose's default model, then the nuclear centroids are used to generate labelled voronoi spaces and the cell masks using cell paint or generating using the brainbow flurophores are then used generate cell mask. 
     
@@ -52,7 +55,9 @@ def segment_cells_and_nuclei_cp_and_vor( image:np.ndarray,
     
     #process and segment the nuclear image
     processed_nuc = filters.gaussian(image[channel_map['DAPI']],sigma=2) #smoothen the image using a gaussian filter 
-    nuc_mask = segment_nuclei_cellpose([processed_nuc],estimated_nucleus_dia,cp_nuc_flowthresh)[0] #obtain nuc labelled image
+    nuc_mask = segment_nuclei_cellpose([processed_nuc],estimated_nucleus_dia,cp_nuc_flowthresh,
+                                       use_gpu = cp_use_gpu
+                                      )[0] #obtain nuc labelled image
 
          
     # if no cytoplasmic stain is present, generate a pesudo stain using the brainbow colors

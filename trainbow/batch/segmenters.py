@@ -8,13 +8,15 @@ import matplotlib.pyplot as plt
 import os
 from trainbow.utils import image_utils, database_utils
 import trainbow.segmentation.cell_segmentation as seg
+from tqdm import tqdm 
 
 def segment_cells(acquisition_df:pd.DataFrame,
                   channel_map:dict,
                   output_dir:str,
                   cytoplasm_stain:str = None,
                   est_nucleus_dia: int = 35,
-                  nuc_flowthresh_cp: float = 0.4
+                  nuc_flowthresh_cp: float = 0.4,
+                  use_gpu:bool = False
                  ):
     '''
     Function that segments images in the acquisition dataframe and saves the segmentation masks in the output directory
@@ -46,7 +48,8 @@ def segment_cells(acquisition_df:pd.DataFrame,
                                                                        channel_map = channel_map,
                                                                        cyto_stain = cytoplasm_stain,
                                                                        estimated_nucleus_dia = est_nucleus_dia,
-                                                                       cp_nuc_flowthresh = nuc_flowthresh_cp
+                                                                       cp_nuc_flowthresh = nuc_flowthresh_cp,
+                                                                       cp_use_gpu = use_gpu
                                                                       )
       
         #save the segmentation masks

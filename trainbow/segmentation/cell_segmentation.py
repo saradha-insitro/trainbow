@@ -5,9 +5,11 @@ import pandas as pd
 
 from cellpose import models
 
-from skimage import filters, measure,exposure
+from scipy import ndimage
+from skimage import filters, measure,exposure,segmentation
 
-from trainbow.utils import image_utils, database_utils,voronoi
+from trainbow.utils import image_utils, database_utils
+from trainbow.segmentation import voronoi
 
 def segment_nuclei_cellpose(images:list,
                             nuc_dia:int = 35,
@@ -34,31 +36,71 @@ def segment_nuclei_cellpose(images:list,
                                     interp = False)
     return nuc_masks
 
+def segment_cells_watershed(cell_image:np.ndarray,
+                            nuc_seg:np.ndarray
+                           ):
+    
+    #process and threshold the cell stain mask to generate the cell mask
+    processed_cyto = filters.gaussian(exposure.equalize_adapthist(cell_image, clip_limit=0.1),sigma=3)
+    thresholded_cyto = processed_cyto > filters.threshold_li(processed_cyto)
+    
+    #Generate the cell basins using a eucledian distance transform of the cell mask
+    distance = ndimage.distance_transform_edt(thresholded_cyto)
+    ref_cell_image = -1 * distance
+    
+    #Generate the labels using watershed with the nuclear segmented lables as seeds
+    cell_seg = segmentation.watershed(ref_cell_image, 
+                                          markers=nuc_seg, 
+                                          mask=thresholded_cyto, compactness=0.1)
+    
+    return cell_seg
 
-def segment_cells_and_nuclei_cp_and_vor( image:np.ndarray,
-                                         channel_map:dict,
-                                         cyto_stain:int = None,
-                                         estimated_nucleus_dia:int = 35,
-                                         cp_nuc_flowthresh:float =0.4,
-                                        cp_use_gpu:bool = False
-                                       ):
+
+
+
+def segment_cells_voronoi( cell_image:np.ndarray,
+                            nuc_seg:np.ndarray
+                           ):
+    
+    #process and threshold the cell stain mask to generate the cell mask
+    processed_cyto = filters.gaussian(exposure.equalize_adapthist(cell_image, clip_limit=0.1),sigma=3)
+    thresholded_cyto = processed_cyto > filters.threshold_li(processed_cyto)
+   
+    #generate voronoi spaces from nuclear centroids
+    features = measure.regionprops_table(nuc_seg,properties=('label','centroid'))
+    
+    if (len(features['centroid-0'])< 6):    
+        print("Too few nuclei for voronoi segmentation using watershed instead")
+        cell_seg = segment_cells_watershed(cell_image,nuc_seg)
+        
+    else:
+        vor_image = voronoi.get_voronoi_map(centroids = np.stack((features['centroid-0'],features['centroid-1']),axis=1),
+                                           labels = features['label'],
+                                           img_height = nuc_seg.shape[0],
+                                           img_width = nuc_seg.shape[1])
+
+        #generate cell mask from voronoi image
+        cell_seg = np.multiply(vor_image,thresholded_cyto.astype('uint16'))
+
+
+    return cell_seg
+
+
+
+
+def segment_cells_from_nuclei(image:np.ndarray,
+                              channel_map:dict,
+                              nuclear_mask:np.ndarray,
+                              cyto_stain:int = None,
+                              method: str = 'voronoi'):
     '''
-    Function to segment cells and nuclei. This is achieved by first generating nuclei labelled masks using cellpose's default model, then the nuclear centroids are used to generate labelled voronoi spaces and the cell masks using cell paint or generating using the brainbow flurophores are then used generate cell mask. 
+    Function to segment cells using nuclear segmentation mask as reference. 
     
     Args:
         image: a multichannel image in CHW format
         channel_map: an annotation dictionary maping the flurophores to the channel index
         cyto_stain: the stain that should be used to generate the cell mask - if set to None, a psuedo stain is generated using all the brainbow flurosphores.
-        nuc_dia: estimated diameter of the nuclei to be inputed to the cell pose model. Set to None if unknown. 
-        cp_flowthresh: cell pose's flow threshold. Increase this value if there is the objects are underdetected
     '''
-    
-    #process and segment the nuclear image
-    processed_nuc = filters.gaussian(image[channel_map['DAPI']],sigma=2) #smoothen the image using a gaussian filter 
-    nuc_mask = segment_nuclei_cellpose([processed_nuc],estimated_nucleus_dia,cp_nuc_flowthresh,
-                                       use_gpu = cp_use_gpu
-                                      )[0] #obtain nuc labelled image
-
          
     # if no cytoplasmic stain is present, generate a pesudo stain using the brainbow colors
     if cyto_stain is None:
@@ -67,24 +109,14 @@ def segment_cells_and_nuclei_cp_and_vor( image:np.ndarray,
     else:
         cell_ch = image[channel_map[cyto_stain]]
    
-    #process and threshold the pseudo cell stain mask to generate the cell mask
-    processed_cyto = filters.gaussian(exposure.equalize_adapthist(cell_ch, clip_limit=0.1),sigma=3)
-    thresholded_cyto = processed_cyto > filters.threshold_li(processed_cyto)
-  
+    if (method == 'watershed'):
+        cell_mask = segment_cells_watershed(cell_ch,nuclear_mask)
+    elif (method == 'voronoi'):
+        cell_mask = segment_cells_voronoi(cell_ch,nuclear_mask)
+    else:
+        raise ValueError("method must be one of {}".format(["voronoi","watershed"]))
 
-    #generate voronoi spaces from nuclear centroids
-    features=measure.regionprops_table(nuc_mask,properties=('label','centroid'))
-    
-    vor_image=voronoi. get_voronoi_map(centroids = np.stack((features['centroid-0'],features['centroid-1']),axis=1),
-                                       labels = features['label'],
-                                       img_height = nuc_mask.shape[0],
-                                       img_width = nuc_mask.shape[1])
-    
-    #generate cell mask from voronoi image
-    cell_mask = np.multiply(vor_image,thresholded_cyto.astype('uint8'))
-
-    
-    return (nuc_mask,vor_image,cell_mask)
+    return cell_mask
     
     
     

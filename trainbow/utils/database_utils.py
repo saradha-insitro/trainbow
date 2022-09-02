@@ -7,8 +7,21 @@ from ml_projects.posh.utils import data
 from insitro_data.utils import db_utils
 import os
 import pandas as pd
+import boto3
 
 
+def get_file_list( folder: str, bucket:str = 'insitro-user'):
+    '''Function to get a list of all files in a given directory of a s3 bucket. 
+    '''
+    s3 = boto3.resource('s3')
+    my_bucket = s3.Bucket(bucket)
+    
+    files = []
+    for object_summary in my_bucket.objects.filter(Prefix= folder):
+        files.append(object_summary.key)
+        
+    return files
+    
 def read_image(path:str, storage_format:str = "CHW"):
     '''
     Function that reads and returns an image given its path
@@ -27,6 +40,9 @@ def read_image(path:str, storage_format:str = "CHW"):
         raise Exception("Error reading the image: path does not contain tiff or npy file")
     return image
 
+def load_obj(path):
+    
+    return data.load_dataframe(path)
 
 def create_acquistion_df(plate_id: str,microscope_id: int,measurement_ids:list = None):
     '''
@@ -68,7 +84,8 @@ def create_acquistion_df(plate_id: str,microscope_id: int,measurement_ids:list =
                             
     
 def save_object(foo:object, 
-                path:str):
+                path:str
+               ):
     '''
     Function to save an object to a given path in s3. 
     Args: 
@@ -76,5 +93,8 @@ def save_object(foo:object,
         path : path to where object should be stored
     '''
     
-    data.save_data(foo,path)
+    if isinstance(foo, pd.DataFrame):
+        data.save_dataframe(foo,path)
+    else:
+        data.save_data(foo,path)
     

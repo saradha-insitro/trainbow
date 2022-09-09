@@ -16,8 +16,6 @@ import multiprocessing as mp
 
 _dapi_index = 1
 
-
-
 def segment_nuclei(args:list):
     
     #hacky path : to FIX

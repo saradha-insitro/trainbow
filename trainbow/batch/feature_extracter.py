@@ -14,22 +14,37 @@ import multiprocessing as mp
 
    
 def _extract_brainbow_features(args:list):
-    if len(args)==3:
+    if _object_type == "object":
         feat = extract_brainbow_features( uid = args[0],
                                            input_image_path = args[1],
                                            channel_map = _channel_map,
                                            object_type = _object_type,
                                            input_labelled_image_path = args[2]
                                          )
-    elif len(args)==2:
+        #save the feature dataset to the given output directory
+        utils.database_utils.save_object(feat,args[3])
+
+        return args[3]
+
+    elif _object_type == "image":
         feat = extract_brainbow_features( uid = args[0],
                                            input_image_path = args[1],
                                            channel_map = _channel_map,
                                            object_type = _object_type
                                          )
+        return feat
 
-    return feat
-   
+    elif _object_type == "masked_image":
+        
+        feat = extract_brainbow_features( uid = args[0],
+                                           input_image_path = args[1],
+                                           channel_map = _channel_map,
+                                           object_type = _object_type,
+                                           input_labelled_image_path = args[2]
+                                         )
+    
+
+        return feat
 
 def _extract_segmetation_features(args:list):
     
@@ -69,6 +84,7 @@ def extract_image_features_batch(acquisition_df:pd.DataFrame,
     print("computing image level brainbow features")
     global _object_type 
     _object_type = "image"
+    
     pool = mp.Pool(num_cpus)
     input_output_paths= np.column_stack([image_uids,img_file_paths])
     features = list(tqdm(pool.imap(_extract_brainbow_features, [paths for paths in input_output_paths]), total = len(image_uids)))
@@ -115,16 +131,16 @@ def extract_features_batch(acquisition_df:pd.DataFrame,
 #     pool.join()
     
         
-    #compute brainbow features at image level
-    print("computing image level brainbow features")
-    global _object_type 
-    _object_type = "image"
-    pool = mp.Pool(num_cpus)
-    output_paths = [os.path.join(image_feat_paths,(uid + ".pkl")) for uid in image_uids]
-    input_output_paths= np.column_stack([image_uids,img_file_paths,cell_mask_paths,output_paths])
-    _ = list(tqdm(pool.imap(_extract_brainbow_features, [paths for paths in input_output_paths]), total = len(image_uids)))
-    pool.close()
-    pool.join()
+#     #compute brainbow features at image level
+#     print("computing image level brainbow features")
+#     global _object_type 
+#     _object_type = "image"
+#     pool = mp.Pool(num_cpus)
+#     output_paths = [os.path.join(image_feat_paths,(uid + ".pkl")) for uid in image_uids]
+#     input_output_paths= np.column_stack([image_uids,img_file_paths,cell_mask_paths,output_paths])
+#     feat = list(tqdm(pool.imap(_extract_brainbow_features, [paths for paths in input_output_paths]), total = len(image_uids)))
+#     pool.close()
+#     pool.join()
 
     #compute brainbow features at cell level
     print("computing cell level brainbow features")

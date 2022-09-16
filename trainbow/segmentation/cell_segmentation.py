@@ -83,7 +83,7 @@ def segment_cells_voronoi( cell_image:np.ndarray,
         cell_seg = np.multiply(vor_image,thresholded_cyto.astype('uint16'))
 
 
-    return cell_seg
+    return cell_seg, vor_image
 
 
 
@@ -91,7 +91,7 @@ def segment_cells_voronoi( cell_image:np.ndarray,
 def segment_cells_from_nuclei(image:np.ndarray,
                               channel_map:dict,
                               nuclear_mask:np.ndarray,
-                              cyto_stain:int = None,
+                              cyto_stain:str = None,
                               method: str = 'voronoi'):
     '''
     Function to segment cells using nuclear segmentation mask as reference. 
@@ -112,7 +112,7 @@ def segment_cells_from_nuclei(image:np.ndarray,
     if (method == 'watershed'):
         cell_mask = segment_cells_watershed(cell_ch,nuclear_mask)
     elif (method == 'voronoi'):
-        cell_mask = segment_cells_voronoi(cell_ch,nuclear_mask)
+        cell_mask,_ = segment_cells_voronoi(cell_ch,nuclear_mask)
     else:
         raise ValueError("method must be one of {}".format(["voronoi","watershed"]))
 

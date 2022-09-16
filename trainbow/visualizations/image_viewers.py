@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from trainbow.utils import image_utils, database_utils
 from skimage import exposure
+from skimage.color import rgb2hsv
 
 
 def plot_random_images_from_sample(sample: str,
@@ -19,6 +20,7 @@ def plot_random_images_from_sample(sample: str,
                                          img_size:int = 2,
                                          img_dpi:int = 300,
                                          normalise_comp_image:bool = True,
+                                         equalise_img:bool = False,
                                          comp_img_gain:int = 10,
                                          comp_img_alpha:float = 0.9,
                                          comp_img_gamma: int = 8,
@@ -67,13 +69,73 @@ def plot_random_images_from_sample(sample: str,
         bb_comp = image_utils.create_composite_brainbow_image(image, channel_map, normalise_comp_image)
         
         # visualise image
-        #ax.imshow(exposure.adjust_gamma(bb_comp, gamma =1, gain = comp_img_gain),alpha = comp_img_alpha)
-        
-        img_t = np.stack([exposure.equalize_adapthist(bb_comp[:,:,0], clip_limit=0.3),
-                          exposure.equalize_adapthist(bb_comp[:,:,1], clip_limit=0.3),
-                          exposure.equalize_adapthist(bb_comp[:,:,2], clip_limit=0.3)],axis = 2)
-        ax.imshow(exposure.adjust_gamma(img_t,gamma = comp_img_gamma))
+        if equalise_img:
+            img_t = np.stack([exposure.equalize_adapthist(bb_comp[:,:,0], clip_limit=0.3),
+                              exposure.equalize_adapthist(bb_comp[:,:,1], clip_limit=0.3),
+                              exposure.equalize_adapthist(bb_comp[:,:,2], clip_limit=0.3)],axis = 2)
+            ax.imshow(exposure.adjust_gamma(img_t,gamma = comp_img_gamma))
+        else:
+            ax.imshow(exposure.adjust_gamma(bb_comp, gamma =1, gain = comp_img_gain),alpha = comp_img_alpha)
 
+
+        ax.axis('off')
+    
+    fig.suptitle(sample,fontweight='bold')
+    fig.show()
+
+def plot_random_hsv_images_from_sample(sample: str,
+                                         acquisition_df:pd.DataFrame,
+                                         well_anno: dict, 
+                                         channel_map: dict,
+                                         number_of_img:int = 10,
+                                         img_size:int = 2,
+                                         img_dpi:int = 300,
+                                         normalise_comp_image:bool = True,
+                                         max_num_of_images_per_row:int = 5
+                                   
+                                        ):
+    '''
+    Function to visualise n brainbow images randomly sampled (with replacement) for a given sample
+    
+    Args:
+        sample: the sample to be sampled from
+        acquisition_df: pandas aquisition dataframe containing the image paths and the well locations
+        well_anno: an annotation dictionary maping the samples to the wells        
+        channel_map: an annotation dictionary maping the flurophores to the channel index
+        number_of_img: number of images to randomly choose per sample
+        img_size: the size of one image in a plot
+        img_dpi: resolution (dpi) of the plot
+        normalise_comp_image: should the channels of each image be normalised- note that this will give weird images if set to true and there is no signal in the image
+        max_num_of_images_per_row: a number specifying the maximum number of columns in the image matrix
+
+
+    '''
+    
+    if sample not in well_anno:
+        raise Exception("Error: sample not in given annotated well map") 
+    
+    #set the layout of the image
+    nrow = int(np.ceil(number_of_img/max_num_of_images_per_row))
+    ncol = number_of_img if nrow <= 1 else max_num_of_images_per_row
+    
+    fig, axs = plt.subplots(nrow,ncol, dpi = img_dpi, figsize=(img_size*ncol,img_size*nrow))
+    fig.subplots_adjust(hspace = 0.1, wspace= 0.1)
+
+    for ax in axs.ravel():
+        #select a random image in a random well for a given sample
+        well = np.random.choice(well_anno[sample])
+        image_path = np.random.choice(acquisition_df[acquisition_df.well_loc == well].file_path)
+
+        # read in the image
+        image = database_utils.read_image(image_path)
+
+        #create composite image
+        bb_comp = image_utils.create_composite_brainbow_image(image, channel_map, normalise_comp_image)
+        
+        hsv_image = rgb2hsv(bb_comp) # convert rgb to hsv
+
+        # visualise image
+        ax.imshow(hsv_image)
         ax.axis('off')
     
     fig.suptitle(sample,fontweight='bold')

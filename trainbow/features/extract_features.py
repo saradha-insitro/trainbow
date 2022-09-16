@@ -67,7 +67,7 @@ def _image_brainbow_features (image: np.ndarray,
     
     # if no labelled mask is provided create an empty ones
     if labelled_image is None:
-        labelled_image = np.ones([image.shape[0], image.shape[1]])        
+        labelled_image = np.ones([image.shape[1], image.shape[2]])               
 
     # if the given label image is empty assume the whole image is an onject
     if (np.max(labelled_image) == 0):

@@ -6,16 +6,19 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import cv2 as cv
+from skimage.color import rgb2hsv
+from skimage import img_as_ubyte
+
 
 def normalize_image(raw_image:np.ndarray):
     '''
-    Function that takes in a 2D image and normalises the image by streching the intensity between 0 and 1 and returns the normalised image
+    Function that takes in a 2D image and normalises the image by streching the intensity between min and max and returns the normalised image
     
     Args: 
         raw_image : single channel 2D image
     '''
     image = cv.normalize(
-        raw_image, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_32F
+        raw_image, None, alpha=0, beta=255, norm_type=cv.NORM_MINMAX, dtype=cv.CV_8U
     )
     return image
 
@@ -33,9 +36,9 @@ def create_composite_brainbow_image( image:np.ndarray,
     
     #create composite image
     if (normalize == True): 
-        comp = np.stack([normalize_image(image[channel_map['mKate2']]).astype('uint8'),
-                         normalize_image(image[channel_map['mOrange']]).astype('uint8'),
-                         normalize_image(image[channel_map['eGFP']]).astype('uint8')],
+        comp = np.stack([normalize_image(image[channel_map['mKate2']]),
+                         normalize_image(image[channel_map['mOrange']]),
+                         normalize_image(image[channel_map['eGFP']])],
                             axis =2)
     else: 
          comp = np.stack([image[channel_map['mKate2']],
@@ -54,10 +57,15 @@ def create_cell_image_from_brainbow_FP(image:np.ndarray,
         channel_map: a dictionary indicating the channel map specifying the channel position/index of mKate2, mOrange and eGFP
     '''
     
-    cell_ch = np.add(np.add(image[channel_map['mKate2']],image[channel_map['mOrange']]),
-                     image[channel_map['eGFP']]).astype("uint16")
+#     cell_ch = np.add(np.add(image[channel_map['mKate2']],image[channel_map['mOrange']]),
+#                      image[channel_map['eGFP']]).astype("uint16")
+
+    bb_img = create_composite_brainbow_image(image, channel_map, normalize = False)
+
+    hsv_img = rgb2hsv(bb_img)
+
     
-    return cell_ch
+    return img_as_ubyte(hsv_img[:,:,2]) 
 
 
     

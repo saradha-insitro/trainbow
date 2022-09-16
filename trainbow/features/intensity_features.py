@@ -28,6 +28,8 @@ def histogram_feat(regionmask: np.ndarray, intensity: np.ndarray):
     """
     
     foreground_pixels = (intensity * regionmask).ravel()
+    foreground_pixels = [x for x in foreground_pixels if x>0] 
+
     feat = {
         "int_sum": np.sum(foreground_pixels, 0),
         "int_min": np.percentile(foreground_pixels, 0),
@@ -69,6 +71,50 @@ def brainbow_ratio_features(eGFP_im: np.ndarray,
             }
     
     return feat
+
+
+def brainbow_cor_features(eGFP_im: np.ndarray,
+                            mOrange_im: np.ndarray,
+                            mKate_im: np.ndarray):
+    """Computes pixel level correlation between brainbow flurophores
+        
+    Args:
+        eGFP_im : eGFP image
+        mOrange_im  : mOrange image
+        mKate_im : mKate image
+    """
+    
+    feat = {
+            "pearson_cor_mKate_mOrange" : stats.pearsonr(mKate_im.flatten(),mOrange_im.flatten())[0],
+            "pearson_cor_mKate_eGFP" : stats.pearsonr(mKate_im.flatten(),eGFP_im.flatten())[0],
+            "pearson_cor_eGFP_mOrange" : stats.pearsonr(eGFP_im.flatten(),mOrange_im.flatten())[0],
+            "spearman_cor_mKate_mOrange" : stats.spearmanr(mKate_im.flatten(),mOrange_im.flatten())[0],
+            "spearman_cor_mKate_eGFP" : stats.spearmanr(mKate_im.flatten(),eGFP_im.flatten())[0],
+            "spearman_cor_eGFP_mOrange" : stats.spearmanr(eGFP_im.flatten(),mOrange_im.flatten())[0]
+            }
+    
+    return feat
+
+    
+def brainbow_cov_features(eGFP_im: np.ndarray,
+                            mOrange_im: np.ndarray,
+                            mKate_im: np.ndarray):
+    """Computes pixel level covariation of brainbow flurophores
+        
+    Args:
+        eGFP_im : eGFP image
+        mOrange_im  : mOrange image
+        mKate_im : mKate image
+    """
+    
+    feat = {
+            "cov_mKate_mOrange" : np.cov(mKate_im.flatten(),mOrange_im.flatten())[0,1],
+            "cov_mKate_eGFP" : np.cov(mKate_im.flatten(),eGFP_im.flatten())[0,1],
+            "cov_eGFP_mOrange" : np.cov(eGFP_im.flatten(),mOrange_im.flatten())[0,1]
+            }
+    
+    return feat
+
 
 
 def image_colorfulness(R: np.ndarray,
@@ -136,13 +182,19 @@ def brainbow_intensity_features (regionmask: np.ndarray,
                       pd.DataFrame([histogram_feat(regionmask,eGFP_image)]).add_prefix('eGFP_').reset_index(drop=True),
                       pd.DataFrame([histogram_feat(regionmask,mOrange_image)]).add_prefix('mOrange_').reset_index(drop=True),
                       pd.DataFrame([histogram_feat(regionmask,mKate_image)]).add_prefix('mKate_').reset_index(drop=True),
-#                       pd.DataFrame([brainbow_ratio_features(eGFP_image,
-#                                                             mOrange_image,
-#                                                             mKate_image)]).reset_index(drop=True),
+                      pd.DataFrame([brainbow_ratio_features(eGFP_image,
+                                                            mOrange_image,
+                                                            mKate_image)]).reset_index(drop=True),
                       pd.DataFrame([brainbow_colorfulness(eGFP_image,
                                                           mOrange_image,
                                                           mKate_image)]).reset_index(drop=True),
-                      
+                      pd.DataFrame([brainbow_cor_features(eGFP_image,
+                                                            mOrange_image,
+                                                            mKate_image)]).reset_index(drop=True),
+
+                      pd.DataFrame([brainbow_cov_features(eGFP_image,
+                                                            mOrange_image,
+                                                            mKate_image)]).reset_index(drop=True),                    
                       pd.DataFrame([histogram_feat(regionmask,hue_img)]).add_prefix('hue_').reset_index(drop=True),
                       pd.DataFrame([histogram_feat(regionmask,saturation_img)]).add_prefix('saturation_').reset_index(drop=True),
                       pd.DataFrame([histogram_feat(regionmask,value_img)]).add_prefix('value_').reset_index(drop=True),
